@@ -1,16 +1,28 @@
 #!/usr/bin/env python
 # _*_ coding:utf-8 _*_
 from flask import abort, request
-from flask_restful import Resource, abort
+from flask_restful import Resource, abort, reqparse
 from sql.sql import MSSQL
 
 account = MSSQL(host='localhost', user='', pwd='', db='angedi')
 
 
 class Account(Resource):
+    def __init__(self):
+        self.parser = reqparse.RequestParser()
+        self.parser.add_argument('page', type=int)
+
+    # 分页查询以及全部查询
     def get(self):
-        results = account.query('SELECT * FROM T_Account')
-        return {"all_account": results}
+        page = self.parser.parse_args().get('page')
+        if page:
+            sql_page = 'SELECT TOP {1} ID,UserID,Name,RoleID,FatherID FROM T_Account ' \
+                       'WHERE ID NOT IN (SELECT TOP {0} ID FROM T_Account)'.format(10 * (page - 1), 10)
+            results = account.query(sql_page)
+            return {"page{}_account".format(page): results}
+        else:
+            results = account.query('SELECT * FROM T_Account')
+            return {"all_account": results}
 
     def put(self):
         if not request.json:
